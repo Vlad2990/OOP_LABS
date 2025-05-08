@@ -18,18 +18,6 @@ namespace oop2
         List<User> users = new List<User>();
         List<Document> docs = new List<Document>();
         List<FormatChar> clipboard = new List<FormatChar>();
-        public DocumentHandler()
-        {
-            users.AddRange([new User("Admin", new AdminStrategy()),
-                            new User("Editor", new EditorStrategy()),
-                            new User("Viewer", new ViewerStrategy())]);
-            if (!File.Exists("test.txt"))
-            {
-                File.Create("test.txt");
-            }
-            docs.Add(new Document("test.txt"));
-        }
-            
 
         public bool SetUser(string name)
         {
@@ -64,20 +52,26 @@ namespace oop2
                 }
             return false;
         }
-
-        public bool ChangeRole(string name, IRoleStrategy role)
+        public List<string> GetFiles()
         {
-            foreach (var user in users)
-                if (user.Name == name)
-                {
-                    return user.ChangeRole(role, currUser);
-                }
-            return false;
+            return [.. docs.Where(doc => doc.Admin == currUser).Select(doc => doc.GetFullName() + " in " + doc.located)];
         }
-        public void SetConsole()
+
+        public void KillUnsave()
         {
-            Console.Clear();
-            Console.Write(currDoc.Read());
+            if (string.IsNullOrEmpty(currDoc.extension))
+                docs.Remove(currDoc);
+        }
+        public bool AddUser(string name)
+        {
+            if (UserExist(name)) return false;
+
+            users.Add(new User(name));
+            return true;
+        }
+        public string GetText()
+        {
+            return currDoc.Read();
         }
         public int MaxLine()
         {
@@ -116,66 +110,79 @@ namespace oop2
         {
             commandManager.Redo();
         }
-        public void Save(int type, StorageType storageType)
+        public void Save(string filename, int type, StorageType storageType)
         {
             Console.Clear();
             var strategy = StorageFactory.CreateStrategy(storageType);
-            Console.WriteLine("Input file name");
-            string filename = Console.ReadLine();
+            string ext = "";
             IFormatAdapter adapter = null;
             switch (type)
             {
                 case 1:
-                    filename += ".txt";
+                    ext = ".txt";
                     adapter = new PlainTextDoc();
                     break;
 
                 case 2:
-                    filename += ".md";
+                    ext = ".md";
                     adapter = new MarkdownDoc();
                     break;
 
                 case 3:
-                    filename += ".rtf";
+                    ext = ".rtf";
                     adapter = new RichTextDoc();
                     break;
             }
             string content = adapter.Convert(currDoc);
-            string old = content;
-            if (storageType == StorageType.LocalFile)
+            Document doc = null;
+            if ((currDoc.GetFullName() != filename + ext && !string.IsNullOrEmpty(currDoc.extension)) || (currDoc.located != storageType && currDoc.located != null))
             {
-                try
-                {
-                    currDoc = DocExist(filename);
-                }
-                catch (FileNotFoundException)
-                {
-                    File.Create(filename).Close();
-                    Document doc = new Document(filename);
-                    doc.Write(content);
-                    docs.Add(doc);
-                    currDoc = doc;
-                }
-                finally
-                {
-                    currDoc.Edit(currUser.Name);
-                    strategy.Save(filename, content);
-
-                    currDoc.ReWrite(content);
-                    Console.Clear();
-                    Console.Write(old);
-                    
-                }
-                SetConsole();
-                return;
+                doc = new Document(filename, currUser);
+                doc.Write(content);
+                docs.Add(doc);
+                currDoc = doc;
             }
-            strategy.Save(filename, content);
-            Console.Clear();
-            Console.Write(old);
+            else
+            {
+                docs.RemoveAll(d => d.GetFullName() == filename + ext && d.located == storageType);
+
+                doc = (Document)currDoc.Clone();
+                docs.Add(doc);
+            }
+            doc.name = filename;
+            doc.extension = ext;
+            doc.located = storageType;
+            strategy.Save(doc.GetFullName(), content);
+            string news = "File changed by" + currUser.Name;
+            doc.Change(news);
+        }
+
+        public void Create()
+        {
+            Document doc = new Document("", currUser);
+            currDoc = doc;
         }
         public List<FormatChar> GetTextRange(int top, int left, int length)
         {
             return currDoc.ReadLine(top).Skip(left).Take(length).ToList();
+        }
+
+        public bool GiveAccess(string filename, string name, IRoleStrategy role)
+        {
+            User user = GetUser(name);
+
+            if (user != null)
+            {
+                Document document = DocExist(filename);
+                if (role == null)
+                {
+                    document.RemoveObserver(currUser, user);
+                    return true;
+                }
+                document.AddObserver(currUser, GetUser(name), role);
+                return true;
+            }
+            else return false;
         }
 
         public void Cut(int top, int left, int length)
@@ -193,49 +200,61 @@ namespace oop2
             if (clipboard == null || clipboard.Count == 0) return;
             InsertText(clipboard, top, left);
         }
-        public List<string> GetHistory(string filename)
+        
+        public bool Open(string filename, StorageType storageType)
         {
-            if (!File.Exists(filename))
-                throw new FileNotFoundException();
-            List<string> history = new List<string>();
-            foreach (var his in currDoc.History) history.Add(his.ToString());
-            return history;
-        }
-        public void Open(string filename, StorageType storageType)
-        {
-            if (storageType == StorageType.LocalFile)
-            {
-                currDoc = DocExist(filename);
-                return;
-            }
             var strategy = StorageFactory.CreateStrategy(storageType);
-            var content = strategy.Load(filename);
-            Document doc = new Document(filename);
-            doc.Write(content);
+            try
+            {
+                strategy.Load(filename);
+            }
+            catch 
+            {
+                return false;
+            }
+            currDoc = (Document)docs.Find(d => d.GetFullName() == filename && d.located == storageType).Clone();
+            return true;
+        }
+        public bool Edit()
+        {
+            bool can = false;
+            try
+            {
+                can = currDoc.CanEdit(currUser.Name);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+            if (can) return true;
+            else throw new UnauthorizedAccessException();
         }
         public Document DocExist(string filename)
         {
-            foreach(var doc in docs)
-            {
-                if (doc.name == filename)
-                    return doc;
-            }
-            throw new FileNotFoundException();
+            Document doc = docs.Find(d => d.GetFullName() == filename);
+            return doc == null ? throw new FileNotFoundException() : doc;
         }
-        public void Open()
-        {
-            Document document = new();
-            currDoc = document;
-        }
-        public void Remove(string filename)
+        public bool Remove(string filename, StorageType storageType)
         {
             DocExist(filename);
+            int count = docs.Count;
             foreach(var doc in docs)
             {
-                docs.Remove(doc);
+                if (doc.GetFullName() == filename && doc.located == storageType)
+                {
+                    docs.Remove(doc);
+                    break;
+                }
             }
-            File.Delete(filename);
+            if (count == docs.Count) return false;
+            var strategy = StorageFactory.CreateStrategy(storageType);
+            strategy.Delete(filename);
+            return true;
         }
 
+        public List<string> GetNews()
+        {
+            return currUser.News;
+        }
     }
 }

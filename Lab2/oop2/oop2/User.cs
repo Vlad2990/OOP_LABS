@@ -9,22 +9,17 @@ namespace oop2
     public class User
     {
         public string Name { get; }
-        public IRoleStrategy Role { get; private set; }
 
-        public User(string name, IRoleStrategy role)
+        public List<string> News { get; private set; } = new();
+
+        public User(string name)
         {
             Name = name;
-            Role = role;
         }
 
-        public bool ChangeRole(IRoleStrategy newRole, User requester)
+        public void AddNews(string news)
         {
-            if (requester.Role is not AdminStrategy)
-            {
-                return false;
-            }
-            Role = newRole;
-            return true;
+            News.Add(news);
         }
 
     }

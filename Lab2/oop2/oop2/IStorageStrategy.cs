@@ -10,5 +10,7 @@ namespace oop2
     {
         void Save(string documentName, string content);
         string Load(string documentName);
+
+        void Delete(string documentName);
     }
 }

@@ -18,5 +18,10 @@ namespace oop2
             if (!File.Exists(documentName)) throw new FileNotFoundException();
             return File.ReadAllText(documentName);
         }
+        public void Delete(string documentName)
+        {
+            if (!File.Exists(documentName)) throw new FileNotFoundException();
+            File.Delete(documentName);
+        }
     }
 }

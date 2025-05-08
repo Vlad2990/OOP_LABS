@@ -3,22 +3,27 @@ using System.Drawing.Drawing2D;
 
 namespace oop2
 {
-    public class Document
+    public class Document : ICloneable
     {
         private List<List<FormatChar>> lines = new();
         public string? name;
-        public List<DocumentEditRecord> History { get; } = new();
+        public string? extension;
+        public StorageType? located;
+        public User Admin { get; private set; }
 
-        public Document(string name)
+        public Dictionary<User, IRoleStrategy> Observers { get; } = new();
+
+        public Document(string name, User admin)
         {
             this.name = name;
+            Admin = admin;
+            SomeChange += Admin.AddNews;
         }
 
-        public Document()
+        public string GetFullName()
         {
-
+            return name + extension;
         }
-
         public void Write(string text)
         {
             lines = SplitToLines(text);
@@ -30,10 +35,6 @@ namespace oop2
             lines = SplitToLines(text);
         }
 
-        public void Edit(string name)
-        {
-            History.Add(new DocumentEditRecord(name));
-        }
 
         public int MaxLine() => lines.Count;
 
@@ -64,6 +65,12 @@ namespace oop2
         {
             if (top < 0 || top >= lines.Count) return new List<FormatChar>();
             return lines[top];
+        }
+        public bool CanEdit(string name)
+        {
+            User user = Observers.Keys.FirstOrDefault(x => x.Name == name);
+            if (name == Admin.Name) return true;
+            return user != null ? Observers[user].CanEdit : throw new UnauthorizedAccessException();
         }
         public void Insert(int top, int left, List<FormatChar> formatChars)
         {
@@ -108,6 +115,10 @@ namespace oop2
             if (left < 0 || left >= lines[top].Count) return;
 
             lines[top].RemoveRange(left, length);
+            if (lines[top].Count == 0 && lines.Count > 1)
+            {
+                lines.RemoveAt(top);
+            }
         }
 
         private List<List<FormatChar>> SplitToLines(string text)
@@ -128,8 +139,58 @@ namespace oop2
                 }
             }
             result.Add(currentLine);
-
             return result;
+        }
+
+        public void Change(string news)
+        {
+            SomeChange.Invoke(news);
+        }
+
+        public void AddObserver(User admin, User user, IRoleStrategy role)
+        {
+            if (admin != Admin) throw new UnauthorizedAccessException();
+            if (Observers.ContainsKey(user))
+            {
+                if (Observers[user] == role) return;
+                Observers.Remove(user);
+            }
+            Observers.Add(user, role);
+            SomeChange += user.AddNews;
+        }
+
+        public void RemoveObserver(User admin, User user)
+        {
+            if (admin != Admin) throw new UnauthorizedAccessException();
+            if (!Observers.ContainsKey(user)) return;
+            SomeChange -= user.AddNews;
+            Observers.Remove(user);
+        }
+
+        public delegate void Changes(string news);
+        public event Changes SomeChange;
+
+
+        public object Clone()
+        {
+            var newDoc = new Document(name, Admin)
+            {
+                extension = extension,
+                located = located
+            };
+
+            newDoc.lines = lines
+                .Select(line => line
+                    .Select(fc => new FormatChar(fc.c) { decs = [.. fc.decs] })
+                    .ToList())
+                .ToList();
+
+            foreach (var observer in Observers)
+            {
+                newDoc.Observers.Add(observer.Key, observer.Value);
+            }
+
+            return newDoc;
         }
     }
 }

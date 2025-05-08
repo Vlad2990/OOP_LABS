@@ -20,6 +20,7 @@ namespace oop2
             _top = top;
             _left = left;
             _count = count;
+            if (left + count >= 175) return;
             _deletedText = _document.ReadLine(top).GetRange(left, count);
         }
 

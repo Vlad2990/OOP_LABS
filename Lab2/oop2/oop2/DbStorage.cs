@@ -5,56 +5,10 @@ using System.IO;
 
 public class DbStorage : IStorageStrategy
 {
-    private readonly string connectionString;
-
-    public DbStorage(string dbFilePath = "data.db")
-    {
-        // Формируем строку подключения
-        connectionString = $"Data Source={dbFilePath};";
-
-        // Проверяем/создаем базу данных и таблицы при инициализации
-        InitializeDatabase(dbFilePath);
-    }
-
-    private void InitializeDatabase(string dbFilePath)
-    {
-        if (!File.Exists(dbFilePath))
-        {
-            // Создаем файл базы данных, если его нет
-            File.WriteAllBytes(dbFilePath, Array.Empty<byte>());
-        }
-
-        using var connection = new SqliteConnection(connectionString);
-        connection.Open();
-
-        // Создаем таблицу для документов, если не существует
-        var createDocumentsTableCommand = connection.CreateCommand();
-        createDocumentsTableCommand.CommandText = @"
-            CREATE TABLE IF NOT EXISTS Documents (
-                Name TEXT PRIMARY KEY,
-                Content TEXT NOT NULL,
-                LastModified TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )";
-        createDocumentsTableCommand.ExecuteNonQuery();
-
-        // Создаем таблицу истории версий, если не существует
-        var createHistoryTableCommand = connection.CreateCommand();
-        createHistoryTableCommand.CommandText = @"
-            CREATE TABLE IF NOT EXISTS DocumentHistory (
-                Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                DocumentName TEXT NOT NULL,
-                Content TEXT NOT NULL,
-                ModifiedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(DocumentName) REFERENCES Documents(Name)
-            )";
-        createHistoryTableCommand.ExecuteNonQuery();
-    }
+    private readonly string connectionString = $"Data Source=data.db;";
 
     public void Save(string documentName, string content)
     {
-        if (string.IsNullOrWhiteSpace(documentName))
-            throw new ArgumentException("Document name cannot be empty", nameof(documentName));
-
         try
         {
             using var connection = new SqliteConnection(connectionString);
@@ -97,6 +51,24 @@ public class DbStorage : IStorageStrategy
 
     public string Load(string documentName)
     {
+        using var connection = new SqliteConnection(connectionString);
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Content FROM Documents WHERE Name = @name LIMIT 1";
+        command.Parameters.AddWithValue("@name", documentName);
+
+        using var reader = command.ExecuteReader();
+
+        if (reader.Read())
+        {
+            return reader.GetString(0);
+        }
+
+        throw new FileNotFoundException($"Document '{documentName}' not found in database");
+    }
+    public void Delete(string documentName)
+    {
         if (string.IsNullOrWhiteSpace(documentName))
             throw new ArgumentException("Document name cannot be empty", nameof(documentName));
 
@@ -105,22 +77,41 @@ public class DbStorage : IStorageStrategy
             using var connection = new SqliteConnection(connectionString);
             connection.Open();
 
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT Content FROM Documents WHERE Name = @name LIMIT 1";
-            command.Parameters.AddWithValue("@name", documentName);
-
-            using var reader = command.ExecuteReader();
-
-            if (reader.Read())
+            bool documentExists;
+            using (var checkCommand = connection.CreateCommand())
             {
-                return reader.GetString(0);
+                checkCommand.CommandText = "SELECT COUNT(*) FROM Documents WHERE Name = @name";
+                checkCommand.Parameters.AddWithValue("@name", documentName);
+                documentExists = (long)checkCommand.ExecuteScalar() > 0;
             }
 
-            throw new FileNotFoundException($"Document '{documentName}' not found in database");
+            if (!documentExists)
+            {
+                throw new FileNotFoundException($"Document '{documentName}' not found in database");
+            }
+
+            using (var deleteCommand = connection.CreateCommand())
+            {
+                deleteCommand.CommandText = "DELETE FROM Documents WHERE Name = @name";
+                deleteCommand.Parameters.AddWithValue("@name", documentName);
+
+                try
+                {
+                    int rowsAffected = deleteCommand.ExecuteNonQuery();
+                    if (rowsAffected == 0)
+                    {
+                        throw new InvalidOperationException($"Unexpected error: Document '{documentName}' was not deleted");
+                    }
+                }
+                catch (SqliteException ex)
+                {
+                    throw new InvalidOperationException($"Failed to execute DELETE command: {ex.Message}", ex);
+                }
+            }
         }
         catch (SqliteException ex)
         {
-            throw new InvalidOperationException("Failed to load document from database", ex);
+            throw new InvalidOperationException("Database operation failed", ex);
         }
     }
 }

@@ -23,7 +23,45 @@ namespace oop2
         private SettingsManager settingsManager = SettingsManager.Instance;
         public Menu()
         {
-            UserMenu();
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine("1 - Add user");
+                Console.WriteLine("2 - Log in");
+                Console.WriteLine("Esc - End");
+
+                var key = Console.ReadKey(true);
+                switch (key.Key)
+                {
+                    case ConsoleKey.D1:
+                        AddUser();
+                        break;
+                    case ConsoleKey.D2:
+                        UserMenu();
+                        break;
+                    case ConsoleKey.Escape:
+                        return;
+                }
+            }
+        }
+
+        private void AddUser()
+        {
+            Console.Clear();
+            Console.WriteLine("Write user name");
+            string? username = Console.ReadLine();
+            if (!documentHandler.AddUser(username))
+            {
+                Console.WriteLine("There is already a user with that name. Press any button");
+                Console.ReadKey();
+                return;
+            }
+            else
+            {
+                Console.WriteLine("User has been added. Press any button");
+                Console.ReadKey();
+                return;
+            }
         }
         
         private void UserMenu()
@@ -60,7 +98,6 @@ namespace oop2
                         break;
 
                     case ConsoleKey.D2:
-                        if (!documentHandler.GetUser().Role.CanEdit) break;
                         Console.Clear();
                         CreateEmpty();
                         break;
@@ -77,7 +114,7 @@ namespace oop2
 
                     case ConsoleKey.D5:
                         Console.Clear();
-                        GetFileHistory();
+                        ViewNews();
                         break;
 
                     case ConsoleKey.D6:
@@ -88,35 +125,62 @@ namespace oop2
                 }
             }
         }
+
+        private void ViewNews()
+        {
+            var news = documentHandler.GetNews();
+            if (news.Count == 0)
+            {
+                Console.WriteLine("There are no news. Press any button");
+                Console.ReadKey(true);
+                return;
+            }
+            foreach(var n in news)
+            {
+                Console.WriteLine(n);
+            }
+            Console.WriteLine();
+            Console.WriteLine("Press any button");
+            Console.ReadKey(true);
+            return;
+        }
+
         private void PrintStartMenu()
         {
+            Console.WriteLine("Hey, " + documentHandler.GetUser().Name + '!');
             Console.WriteLine("1 - Open");
-            if (documentHandler.GetUser().Role.CanEdit)
-                Console.WriteLine("2 - Create new empty");
-            else Console.WriteLine();
+            Console.WriteLine("2 - Create new empty");
             Console.WriteLine("3 - Delete");
-            Console.WriteLine("4 - Change user role");
-            Console.WriteLine("5 - See file history");
+            Console.WriteLine("4 - Give access to file");
+            Console.WriteLine("5 - View file history");
             Console.WriteLine("6 - Change theme");
             Console.WriteLine("Esc - Change user");
         }
         private void CreateEmpty()
         {
             Console.Clear();
-            documentHandler.Open();
+            documentHandler.Create();
             Edit();
         }
         private void OpenFile()
         {
             while (true)
             {
+                var files = documentHandler.GetFiles();
+                if (files.Count != 0)
+                {
+                    Console.WriteLine("Your files:");
+                    foreach (var file in files)
+                        Console.WriteLine(file);
+                    Console.WriteLine();
+                }
                 Console.WriteLine("Input file name");
                 string filename = Console.ReadLine();
                 Console.Clear();
                 Console.WriteLine("Load from:");
                 Console.WriteLine("1 - Local");
                 Console.WriteLine("2 - Db");
-                Console.WriteLine("3 - Cloude");
+                Console.WriteLine("3 - Cloud");
                 bool stop = false;
                 StorageType type = StorageType.LocalFile;
                 while (!stop)
@@ -154,54 +218,48 @@ namespace oop2
                 }
                 try
                 {
-                    Console.Clear();
-                    documentHandler.Open(filename, type);
-                    if (documentHandler.GetUser().Role.CanEdit) Edit();
-                    else View();
-                    break;
+                    documentHandler.DocExist(filename);
                 }
-                catch (FileNotFoundException)
+                catch (FileNotFoundException) 
                 {
                     Console.WriteLine("File not found. Press 1 to input another name or any diff key to stop");
                     if (Console.ReadKey(true).Key != ConsoleKey.D1)
                     {
                         break;
                     }
+                }
+                if(!documentHandler.Open(filename, type))
+                {
+                    Console.WriteLine("There is no file with that name in " + type.ToString());
+                    Console.WriteLine("Press any button");
+                    Console.ReadKey(true);
+                    return;
+                }
+                try
+                {
+                    if (!documentHandler.Edit())
+                    {
+                        Console.WriteLine("You cant view or edit this file. Press any button");
+                        Console.ReadKey(true);
+                        return;
+                    }
+                    Edit();
+                    return;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    View();
+                    return;
                 }
             }
         }
 
-        private void GetFileHistory()
-        {
-            while (true)
-            {
-                Console.WriteLine("Input file name");
-                string filename = Console.ReadLine();
-                try
-                {
-                    Console.Clear();
-                    var his = documentHandler.GetHistory(filename);
-                    foreach(var line in his)
-                        Console.WriteLine(line);
-                    Console.ReadKey(true);
-                    break;
-                }
-                catch (FileNotFoundException)
-                {
-                    Console.WriteLine("File not found. Press 1 to input another name or any diff key to stop");
-                    if (Console.ReadKey(true).Key != ConsoleKey.D1)
-                    {
-                        break;
-                    }
-                }
-            }
-        }
         private void Edit()
         {
             top = 0;
             left = 0;
             Console.SetCursorPosition(left, top);
-            documentHandler.SetConsole();
+            SetConsole();
             while (true)
             {
                 ConsoleKeyInfo key = new();
@@ -247,7 +305,7 @@ namespace oop2
                             int length = end - start;
 
                             documentHandler.Cut(top, start, length);
-                            documentHandler.SetConsole();
+                            SetConsole();
 
                             clipLeft = clipRight = clipStart = left = start;
                         }
@@ -266,7 +324,7 @@ namespace oop2
                         break;
                     case ConsoleKey.V when key.Modifiers == ConsoleModifiers.Shift:
                         documentHandler.Paste(top, left);
-                        documentHandler.SetConsole();
+                        SetConsole();
                         break;
                     case ConsoleKey.UpArrow:
                         if (top > 0) top--;
@@ -336,18 +394,18 @@ namespace oop2
 
                     case ConsoleKey.Z when key.Modifiers == ConsoleModifiers.Control:
                         documentHandler.Undo();
-                        documentHandler.SetConsole();
+                        SetConsole();
                         break;
 
                     case ConsoleKey.Y when key.Modifiers == ConsoleModifiers.Control:
                         documentHandler.Redo();
-                        documentHandler.SetConsole();
+                        SetConsole();
                         break;
 
                     case ConsoleKey.Delete:
                         if (documentHandler.MaxLeft(top) == left) break;
                         documentHandler.DeleteText(top, left, 1);
-                        documentHandler.SetConsole();
+                        SetConsole();
                         break;
                     case ConsoleKey.Backspace:
                         if (left == 0 && top == 0) break;
@@ -358,8 +416,24 @@ namespace oop2
                         }
                         else left--;
                         documentHandler.DeleteText(top, left, 1);
-                        documentHandler.SetConsole();
+                        SetConsole();
                         clipLeft = clipRight = clipStart = left;
+                        break;
+
+                    case ConsoleKey.Tab:
+                        for (int i = 0; i < 4; ++i)
+                        {
+                            documentHandler.InsertText(' ', top, left, IsBold, IsItalic, IsUnderline);
+                            if (left == 175)
+                            {
+                                left = 0;
+                                top++;
+                            }
+                            else left++;
+                            SetConsole();
+
+                            clipLeft = clipRight = clipStart = left;
+                        }
                         break;
 
                     case ConsoleKey.Enter:
@@ -369,6 +443,7 @@ namespace oop2
                         clipLeft = clipRight = clipStart = left;
                         break;
                     case ConsoleKey.Escape:
+                        documentHandler.KillUnsave();
                         return;
                     default:
                         documentHandler.InsertText(key.KeyChar, top, left, IsBold, IsItalic, IsUnderline);
@@ -378,7 +453,7 @@ namespace oop2
                             top++;
                         }
                         else left++;
-                            documentHandler.SetConsole();
+                        SetConsole();
 
                         clipLeft = clipRight = clipStart = left;
                         break;
@@ -392,7 +467,7 @@ namespace oop2
         {
             while (true)
             {
-                documentHandler.SetConsole();
+                SetConsole();
                 var key = Console.ReadKey(true);
                 if (key.Key == ConsoleKey.Escape) return;
             }
@@ -434,44 +509,86 @@ namespace oop2
         }    
         private void ChangeRole()
         {
-            while(true)
+            while (true)
             {
                 Console.Clear();
+                var files = documentHandler.GetFiles();
+                if (files.Count == 0)
+                {
+                    Console.WriteLine("You don't have any files. Press any key");
+                    Console.ReadKey(true);
+                    return;
+                }
+                Console.WriteLine("Your files:");
+                foreach(var file in files)
+                    Console.WriteLine(file);
+
+                Console.WriteLine();
+                Console.WriteLine("Write file name or '1' to stop");
+                string filename = Console.ReadLine();
+                if (filename == "1") return;
+                Console.WriteLine();
                 Console.WriteLine("Write user name or '1' to stop");
                 string username = Console.ReadLine();
                 if (username == "1") return;
-                if (!documentHandler.UserExist(username))
+                if (username == documentHandler.GetUser().Name)
                 {
-                    Console.WriteLine("Wrong user name");
-                    continue;
+                    Console.WriteLine("You already have everything you need. Press any button");
+                    Console.ReadKey(true);
+                    return;
                 }
                 Console.Clear();
                 Console.WriteLine("Press 1 to set view permission");
                 Console.WriteLine("Press 2 to set edit permission");
+                Console.WriteLine("Press 3 to remove premission");
 
                 bool stop = false;
-
+                IRoleStrategy role = null;
                 while (!stop) {
                 var key = Console.ReadKey(true);
                     switch (key.Key)
                     {
                         case ConsoleKey.D1:
-                            if (!documentHandler.ChangeRole(username, new ViewerStrategy()))
-                            {
-                                Console.WriteLine("You cant change user roles");
-                            }
+                            role = new ViewerStrategy();
                             stop = true;
                             break;
                         case ConsoleKey.D2:
-                            if (!documentHandler.ChangeRole(username, new EditorStrategy()))
-                            {
-                                Console.WriteLine("You cant change user roles");
-                            }
+                            role = new EditorStrategy();
                             stop = true;
                             break;
-                        default:
+
+                        case ConsoleKey.D3:
+                            role = null;
+                            stop = true;
                             break;
                     }
+                }
+                try
+                {
+                    if (!documentHandler.GiveAccess(filename, username, role))
+                    {
+                        Console.WriteLine("There are no user with this name. Press any button");
+                        Console.ReadKey(true);
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Permission granted successfully. Press any key");
+                        Console.ReadKey(true);
+                        return;
+                    }
+                }
+                catch (FileNotFoundException)
+                {
+                    Console.WriteLine("Wrong file name. Press any key");
+                    Console.ReadKey(true);
+                    return;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    Console.WriteLine("You cant give access to this file. Press any key");
+                    Console.ReadKey(true);
+                    return;
                 }
             }
         }
@@ -479,31 +596,85 @@ namespace oop2
         {
             while (true)
             {
+                var files = documentHandler.GetFiles();
+                if (files.Count != 0)
+                {
+                    Console.WriteLine("Your files:");
+                    foreach (var file in files)
+                        Console.WriteLine(file);
+                    Console.WriteLine();
+                }
                 Console.WriteLine("Input file name");
                 string filename = Console.ReadLine();
+                Console.Clear();
+                Console.WriteLine("Delete from");
+                Console.WriteLine("1 - Local");
+                Console.WriteLine("2 - Db");
+                Console.WriteLine("3 - Cloud");
+                bool stop = false;
+                StorageType type = StorageType.LocalFile;
+                while (!stop)
+                {
+
+                    ConsoleKeyInfo key2 = new();
+                    try
+                    {
+                        key2 = Console.ReadKey(true);
+                    }
+                    catch (System.InvalidOperationException)
+                    {
+                        continue;
+                    }
+                    switch (key2.Key)
+                    {
+                        case ConsoleKey.D1:
+                            type = StorageType.LocalFile;
+                            stop = true;
+                            break;
+
+                        case ConsoleKey.D2:
+                            type = StorageType.Db;
+                            stop = true;
+                            break;
+
+                        case ConsoleKey.D3:
+                            type = StorageType.Firebase;
+                            stop = true;
+                            break;
+
+                        case ConsoleKey.Escape:
+                            return;
+                    }
+                }
                 try
                 {
-                    documentHandler.Remove(filename);
+                    if (!documentHandler.Remove(filename, type))
+                    {
+                        Console.WriteLine("There is no file with that name in " + type.ToString());
+                        Console.WriteLine("Press any button");
+                        Console.ReadKey(true);
+                        return;
+                    }
                     Console.WriteLine("File deleted. Press any button");
                     Console.ReadKey(true);
                     break;
                 }
-                catch (FileNotFoundException)
+                catch (Exception)
                 {
-                    Console.WriteLine("File not found. Press 1 to input another name or any diff key to stop");
-                    if (Console.ReadKey(true).Key != ConsoleKey.D1)
-                    {
-                        break;
-                    }
+                    Console.WriteLine("File not found. Press any button");
+                    Console.ReadKey(true);
+                    return;
                 }
             }
         }
         private void Save()
         {
             Console.Clear();
+            Console.WriteLine("Input file name without extension");
+            string filename = Console.ReadLine();
             Console.WriteLine("1 - Local");
             Console.WriteLine("2 - Db");
-            Console.WriteLine("3 - Cloude");
+            Console.WriteLine("3 - Cloud");
             bool stop = false;
             StorageType type = StorageType.LocalFile;
             while (!stop)
@@ -559,24 +730,33 @@ namespace oop2
                 switch (key3.Key)
                 {
                     case ConsoleKey.D1:
-                        documentHandler.Save(1, type);
+                        documentHandler.Save(filename, 1, type);
                         stop2 = true;
+                        SetConsole();
                         break;
 
                     case ConsoleKey.D2:
-                        documentHandler.Save(2, type);
+                        documentHandler.Save(filename, 2, type);
                         stop2 = true;
+                        SetConsole();
                         break;
 
                     case ConsoleKey.D3:
-                        documentHandler.Save(3, type);
+                        documentHandler.Save(filename, 3, type);
                         stop2 = true;
+                        SetConsole();
                         break;
 
                     case ConsoleKey.Escape:
                         return;
                 }
             }
+        }
+
+        public void SetConsole()
+        {
+            Console.Clear();
+            Console.Write(documentHandler.GetText());
         }
     }
 }

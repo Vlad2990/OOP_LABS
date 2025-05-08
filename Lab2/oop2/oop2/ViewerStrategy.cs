@@ -10,7 +10,5 @@ namespace oop2
     {
         public bool CanEdit => false;
         public bool CanManageUsers => false;
-
-       
     }
 }

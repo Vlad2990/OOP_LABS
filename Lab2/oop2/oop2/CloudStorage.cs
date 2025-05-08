@@ -14,7 +14,7 @@ namespace oop2
     {
         StorageClient storage;
         string bucketName = "oop2-cb26b.firebasestorage.app";
-        public CloudStorage() 
+        public CloudStorage()
         {
             var credential = GoogleCredential.FromFile("admin.json");
             storage = StorageClient.Create(credential);
@@ -30,6 +30,19 @@ namespace oop2
         {
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
             storage.UploadObject(bucketName, documentName, "text/plain", stream);
+        }
+        public void Delete(string documentName)
+        {
+
+            var storageObject = storage.GetObject(bucketName, documentName);
+            if (storageObject == null)
+            {
+                throw new FileNotFoundException($"Document '{documentName}' not found in cloud storage");
+            }
+
+            storage.DeleteObject(bucketName, documentName);
+
+
         }
     }
 }
