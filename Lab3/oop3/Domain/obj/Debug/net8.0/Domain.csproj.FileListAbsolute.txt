@@ -1,0 +1,11 @@
+C:\games\progLab\oop3\Domain\bin\Debug\net8.0\Domain.deps.json
+C:\games\progLab\oop3\Domain\bin\Debug\net8.0\Domain.dll
+C:\games\progLab\oop3\Domain\bin\Debug\net8.0\Domain.pdb
+C:\games\progLab\oop3\Domain\obj\Debug\net8.0\Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\games\progLab\oop3\Domain\obj\Debug\net8.0\Domain.AssemblyInfoInputs.cache
+C:\games\progLab\oop3\Domain\obj\Debug\net8.0\Domain.AssemblyInfo.cs
+C:\games\progLab\oop3\Domain\obj\Debug\net8.0\Domain.csproj.CoreCompileInputs.cache
+C:\games\progLab\oop3\Domain\obj\Debug\net8.0\Domain.dll
+C:\games\progLab\oop3\Domain\obj\Debug\net8.0\refint\Domain.dll
+C:\games\progLab\oop3\Domain\obj\Debug\net8.0\Domain.pdb
+C:\games\progLab\oop3\Domain\obj\Debug\net8.0\ref\Domain.dll
