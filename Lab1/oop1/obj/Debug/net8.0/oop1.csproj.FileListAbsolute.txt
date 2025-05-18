@@ -1,0 +1,17 @@
+C:\games\progLab\oop1\oop1\bin\Debug\net8.0\oop1.exe
+C:\games\progLab\oop1\oop1\bin\Debug\net8.0\oop1.deps.json
+C:\games\progLab\oop1\oop1\bin\Debug\net8.0\oop1.runtimeconfig.json
+C:\games\progLab\oop1\oop1\bin\Debug\net8.0\oop1.dll
+C:\games\progLab\oop1\oop1\bin\Debug\net8.0\oop1.pdb
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.GeneratedMSBuildEditorConfig.editorconfig
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.AssemblyInfoInputs.cache
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.AssemblyInfo.cs
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.csproj.CoreCompileInputs.cache
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.dll
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\refint\oop1.dll
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.pdb
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.genruntimeconfig.cache
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\ref\oop1.dll
+C:\games\progLab\oop1\oop1\bin\Debug\net8.0\Newtonsoft.Json.dll
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.csproj.AssemblyReference.cache
+C:\games\progLab\oop1\oop1\obj\Debug\net8.0\oop1.csproj.Up2Date
